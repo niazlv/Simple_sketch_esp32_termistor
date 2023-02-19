@@ -34,6 +34,8 @@ class Termistor {
         float getTemp();
         void begin();
 
+        uint8_t get_pin(){return _pin;};
+
         #ifndef __TERMISTOR_LOW_PERFOMANCE_MODE
             void ADC_BIT_SET(uint8_t adc_bit):_max_ADC((float)((1<<adc_bit) - 1)){}
             void SAMPLE_AVERAGE(uint16_t average): _T_SAMPLE_AVERAGE(average){}

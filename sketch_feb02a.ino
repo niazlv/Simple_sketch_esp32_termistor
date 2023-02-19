@@ -5,6 +5,8 @@
 
 #include "Termistor.hpp"
 #include "FileSystem.hpp" //default FFat 4MB
+#include "WiFiBasedOn.hpp"
+#include "WebServer.hpp"
 
 //dht settings
 #define DHTPIN 23       // пин на котором сидит датчик
@@ -13,8 +15,13 @@
 
 
 DHT_Unified dht(DHTPIN, DHTTYPE);
-Termistor *tr[2];
+Termistor *tr[1];
+
 FileSystem fs_ex;
+
+WiFiBasedOn wifi_based_on;
+
+WebServerClass webser;
 
 
 void printTemps() {
@@ -31,11 +38,13 @@ void printTemps() {
   float hictemp = (DHT(0,DHT11).computeHeatIndex(temp, h, false));
   Serial.printf("DHT: t: %.2f°C, h: %.0f%%, Heat index: %0.2f°C\n",t,h,hic);
   Serial.printf("Termistor: %.2f, heat index: %.2f\n", temp,hictemp);
+  Serial.println(analogRead(tr[0]->get_pin()));
   Serial.println();
 }
 
 uint8_t writeTempsToFile() {
   float temp = tr[0]->getTemp();
+  printTemps();
   sensors_event_t event;
   
   dht.temperature().getEvent(&event);
@@ -54,6 +63,7 @@ uint8_t writeTempsToFile() {
   // msg = "temp; humidity; /*HEAT INDEX;*/ NAME\n";
   msg  =  String(t)     + ";" + (int)h  +   /*";" + hic     + */";D1\n";
   msg +=  String(temp)  + ";" +             /*";" + hictemp + */";T1\n";
+  Serial.println(msg);
   File dir = FFat.open("/temperature");
   if(!dir) {
     fs_ex.mkdir("/temperature");
@@ -74,6 +84,22 @@ uint8_t writeTempsToFile() {
   return 0;
 }
 
+void TaskToWriteTempsToFile(void * parameter) {
+  Serial.println("Start TaskToWriteTempsToFile task!");
+  while(true){
+    writeTempsToFile();
+    vTaskDelay(10000/portTICK_PERIOD_MS);
+  }
+}
+
+void TaskToPrintListOfFiles(void *parameter) {
+  Serial.println("Start TaskToPrintListOfFiles task!");
+  while(true) {
+    fs_ex.listDir("/",2);
+    vTaskDelay(10000/portTICK_PERIOD_MS);
+  }
+}
+
 void setup() {
   //pinMode(12,INPUT);
   Serial.begin(115200);
@@ -82,6 +108,11 @@ void setup() {
   //termal sensors
   dht.begin();
   tr[0]->begin();
+
+  wifi_based_on.begin();
+  delay(1000);
+  
+  webser.begin();
 
   // fs
   // FFat.format();
@@ -121,13 +152,27 @@ void setup() {
     //fs_ex.write("/LOG.txt", st.c_str());
   }
   //fs_ex.write("/lool.txt", "loooooooooool\n");
+
+  xTaskCreate(TaskToWriteTempsToFile,
+              "TaskToWriteTempToFile",
+              5*1024,
+              NULL,
+              3,
+              NULL);
+  xTaskCreate(TaskToPrintListOfFiles,
+              "TaskToPrintListOfFiles",
+              3*1024,
+              NULL,
+              3,
+              NULL);
 }
 
 void loop() {
+  delay(10);
   //printTemps();
-  fs_ex.listDir("/",2);
-  writeTempsToFile();
-  delay(10000);
+  //fs_ex.listDir("/",2);
+  //writeTempsToFile();
+  //delay(10000);
   //fs_ex.listDir("/",2);
   //String str = "start: ";
   //str += random(100,10000);

@@ -1,4 +1,6 @@
+#include "hal/adc_types.h"
 #include "Termistor.hpp"
+#include <driver/adc.h>
 
 float Termistor::computeTemp(float analog) {
   analog = _baseDivRes / (_max_ADC / analog - 1.0);
@@ -17,7 +19,9 @@ float Termistor::getTemp() {
 }
 
 void Termistor::begin() {
-    pinMode(_pin, INPUT);
+  // adc2_config_width(ADC_WIDTH_12Bit);
+  adc2_config_channel_atten(ADC2_CHANNEL_5, ADC_ATTEN_DB_0);
+  pinMode(_pin, INPUT);
 }
 
 
